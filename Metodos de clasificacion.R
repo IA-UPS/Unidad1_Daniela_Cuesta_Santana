@@ -1,7 +1,5 @@
-# Métodos de clasificación
 
-##Veremos un resumen de todos los métodos que hemos visto incluyendo Knn y Naive Bayes. Tened en cuenta que es un método de clasificación multiclase con más de 2 niveles.
-
+  
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
@@ -9,23 +7,23 @@ library(glmnet) ## regresiones logisitcas
 library(caret) ### bayes y knn
 library(e1071) ## bayes
 
-#Cargamos datos y se quita la primera columna
+# quitamos la primera columna
 datos <- read.table("./yeast.data",header = F)[,-1]
 
-#Creamos las funciones que vamos a necesitar, es decir las funciones de transformación
+# Funciones de transformacion
 min.max.mean <- function(X) apply(X,2,function(x) (x-mean(x))/(max(x)-min(x)))
 min.max.median <- function(X) apply(X,2,function(x) (x-median(x))/(max(x)-min(x)))
 min.max <- function(X) apply(X,2,function(x) (x-min(x))/(max(x)-min(x)))
 zscore <- function(X) apply(X,2,function(x) (x-mean(x))/sd(x))
 l2 <- function(X) apply(X,2,function(x) x/sqrt(sum(x^2))) 
 
-##Para hacer las transformaciones, solo se necesitan las variables numéricas, es por eso que se usa as.factor
-datos <- as.data.frame(datos)
+
+#Particion de datosdatos <- as.data.frame(datos)
 datos.numericos <- datos[, which(unlist(lapply(datos, is.numeric)))]
 clase <- datos$V10 <- as.factor(datos$V10)
 colnames(datos.numericos) <- paste0("Var", rep(1:8))
 
-#Se crea una lista con todas las transformaciones
+### procedemos a crear una lista con todas las transformaciones
 datos.lista <- list(
   raw = bind_cols(datos.numericos,clase=clase),
   zscore = bind_cols(zscore(datos.numericos),
@@ -38,17 +36,18 @@ datos.lista <- list(
   min_max = bind_cols(min.max(datos.numericos),
                       clase = clase))
 
-#Descriptiva Gráfica
-#Al ser demasiadas variables, podemos realizar un `melt`, quedan 2 o 3 variables
+#Al ser demasiadas variables, podemos realizar un melt
 lista_graficos <- vector("list",length=length(datos.lista))
 datos.melt <- lapply(datos.lista,reshape2::melt)
 
-#Podemos ver la cabecera de alguna transfomacion para ver el nombre nuevo de las variables
-head(datos.melt$zscore)
+#graficos
 for(l in 1:length(datos.melt)){
+  
   X <- datos.melt[[l]]
   nombre <- names(datos.melt)[l]
   lista_graficos[[l]] <- ggplot(X,aes(y=value,fill=clase))+geom_boxplot()+ggtitle(nombre)+xlab("")+ylab("")
+  
+  
 }
 
 names(lista_graficos) <- paste0("plot",1:length(datos.lista))
@@ -60,11 +59,14 @@ lista_graficos$plot4
 lista_graficos$plot5
 lista_graficos$plot6
 
-# Así por ejemplo la normalización min-max es la mejor, puesto que no tenemos outliers,otra forma de ver la transfomración es mediante gráficos de densidad
+#grafico de densidad
 for(l in 1:length(datos.melt)){
+  
   X <- datos.melt[[l]]
   nombre <- names(datos.melt)[l]
   lista_graficos[[l]] <- ggplot(X,aes(x=value))+geom_density()+ggtitle(nombre)+xlab("")+ylab("")
+  
+  
 }
 
 names(lista_graficos) <- paste0("plot",1:length(datos.lista))
@@ -76,46 +78,68 @@ lista_graficos$plot4
 lista_graficos$plot5
 lista_graficos$plot6
 
-# Sin embargo, al ver la densidad, no tenemos una transformacion uniforme.
-corrplot::corrplot(cor(datos.numericos))
-corrplot::corrplot(cor(datos.lista$media[,-ncol(datos)]))
 
-#Partición de datos
-#NOTA: PODEMOS CREAR LA PARTICIÓN CON `caret` o a mano, el 70 porciento de los datos. A mano sería
+#Fijamos la semilla y la muestra
 set.seed(123456789)
+trControl <- trainControl(method = 'cv', number = 10)
 n  <- nrow(datos)
-idx <- sample(1:n,n*0.7)
+idx <- sample(1:n,size=n*0.7,replace=F)
+lambda_seq <- seq(0.01, 1, by = 0.01)
+
 ### para conjunto de datos podemos realizar el split
-datos.train.lista <- lapply(datos.lista, function(x) x[idx,])
-datos.test.lista <- lapply(datos.lista, function(x) x[-idx,])
+entrenamiento <- lapply(datos.lista, function(x) x[idx,])
+test <- lapply(datos.lista, function(x) x[-idx,])
 
-### Ejemplo regresión logística
+#Regresion logistica Lineal
 set.seed(123456789)
-trControl <- trainControl(method = 'cv',
-                          number = 10)
 myfnlog <- function(x) train(clase ~ ., data = x, method = "multinom", trControl = trControl, trace = F)
-logistica.lista <- lapply(datos.train.lista,myfnlog)
+logistica.lista <- lapply(entrenamiento,myfnlog)
 logisita.pred <- vector("list",length = length(datos.lista))
-
 for(l in 1:length(datos.lista)){
-  logisita.pred[[l]] <- predict(logistica.lista[[l]],datos.test.lista[[l]])
+  logisita.pred[[l]] <- predict(logistica.lista[[l]],test[[l]])
 }
-
 names(logisita.pred) <- names(datos.lista)
 accuracy <- vector("numeric",length = length(datos.lista))
-
 for(l in 1:length(datos.lista)){
-  accuracy[l] <- confusionMatrix(datos.test.lista$raw$clase,logisita.pred[[l]])$overall[1]
+  accuracy[l] <- confusionMatrix(test$raw$clase,logisita.pred[[l]])$overall[1]
 }
-
 names(accuracy) <- names(datos.lista)
+accuracy_logis<-accuracy
 
-### Este valor lo tienen que guardar solamente haremos por accuracy y kappa
-### tenemos que mirar el objeto matconf
+#Ridge
 set.seed(123456789)
+ridge <- function(x) train(clase ~ ., data = x, method = "glmnet", trControl = trControl,tuneGrid = expand.grid(alpha=0,lambda=lambda_seq), trace = F)
 
-### para conjunto de datos podemos realizar el split,lasso 1 ridge 0
-datos.train.lista <- lapply(datos.lista, function(x) x[idx,])
-datos.test.lista <- lapply(datos.lista, function(x) x[-idx,])
+logistica.lista <- lapply(entrenamiento,ridge)
+logisita.pred <- vector("list",length = length(datos.lista))
+for(l in 1:length( datos.lista)){
+  logisita.pred[[l]] <- predict(logistica.lista[[l]],test[[l]])
+}
+names(logisita.pred) <- names(datos.lista)
+accuracy <- vector("numeric",length = length(datos.lista))
+for(l in 1:length(datos.lista)){
+  accuracy[l] <- confusionMatrix(test$raw$clase,logisita.pred[[l]])$overall[1]
+}
+names(accuracy) <- names(datos.lista)
+accuracy_ridge <- accuracy
 
-cvfit_lasso <- cv.glmnet(as.matrix(datos.train.lista$raw[,-ncol(datos)]),as.numeric(datos.train.lista$raw$clase),type.measure = "class",family="multinom", alpha = 0,nfolds = 4)
+#Lasso
+set.seed(123456789)
+lasso <- function(x) train(clase ~ ., data = x, method = "glmnet", trControl = trControl,tuneGrid = expand.grid(alpha=1,lambda=lambda_seq), trace = F)
+
+lasso.lista <- lapply(entrenamiento,lasso)
+lasso.pred <- vector("list",length = length(datos.lista))
+for(l in 1:length( datos.lista)){
+  lasso.pred[[l]] <- predict(lasso.lista[[l]],test[[l]])
+}
+names(lasso.pred) <- names(datos.lista)
+accuracy <- vector("numeric",length = length(datos.lista))
+for(l in 1:length(datos.lista)){
+  accuracy[l] <- confusionMatrix(test$raw$clase,lasso.pred[[l]])$overall[1]
+}
+names(accuracy) <- names(datos.lista)
+accuracy_lasso <- accuracy
+
+
+
+
