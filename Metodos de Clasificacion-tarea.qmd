@@ -1,5 +1,10 @@
+---
+title: "Metodos Clasificadores"
+format: pdf
+editor: visual
+---
 
-  
+```{r}
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
@@ -34,7 +39,7 @@ datos.lista <- list(
   mediana = bind_cols(min.max.median(datos.numericos), clase =
                         clase),
   min_max = bind_cols(min.max(datos.numericos),
-                      clase = clase))
+  clase = clase))
 
 #Al ser demasiadas variables, podemos realizar un melt
 lista_graficos <- vector("list",length=length(datos.lista))
@@ -58,7 +63,9 @@ lista_graficos$plot3
 lista_graficos$plot4
 lista_graficos$plot5
 lista_graficos$plot6
+```
 
+```{r}
 #grafico de densidad
 for(l in 1:length(datos.melt)){
   
@@ -77,8 +84,9 @@ lista_graficos$plot3
 lista_graficos$plot4
 lista_graficos$plot5
 lista_graficos$plot6
+```
 
-
+```{r}
 #Fijamos la semilla y la muestra
 set.seed(123456789)
 trControl <- trainControl(method = 'cv', number = 10)
@@ -91,15 +99,24 @@ entrenamiento <- lapply(datos.lista, function(x) x[idx,])
 test <- lapply(datos.lista, function(x) x[-idx,])
 
 #Regresion logistica Lineal
+#semilla
 set.seed(123456789)
+
+#se establece una funcion de entrenamiento 
 myfnlog <- function(x) train(clase ~ ., data = x, method = "multinom", trControl = trControl, trace = F)
+
+#se aplica la funcion creada a los datos de entrenamiento
 logistica.lista <- lapply(entrenamiento,myfnlog)
 logisita.pred <- vector("list",length = length(datos.lista))
+
+# se crea un vector de la misma longitud de datos.lista
 for(l in 1:length(datos.lista)){
   logisita.pred[[l]] <- predict(logistica.lista[[l]],test[[l]])
 }
 names(logisita.pred) <- names(datos.lista)
 accuracy <- vector("numeric",length = length(datos.lista))
+
+#se asignan valres a las posiciones del vector.pred
 for(l in 1:length(datos.lista)){
   accuracy[l] <- confusionMatrix(test$raw$clase,logisita.pred[[l]])$overall[1]
 }
@@ -107,33 +124,49 @@ names(accuracy) <- names(datos.lista)
 accuracy_logis<-accuracy
 
 #Ridge
+#semilla
 set.seed(123456789)
+
+#se establece una funcion de entrenamiento 
 ridge <- function(x) train(clase ~ ., data = x, method = "glmnet", trControl = trControl,tuneGrid = expand.grid(alpha=0,lambda=lambda_seq), trace = F)
 
-logistica.lista <- lapply(entrenamiento,ridge)
-logisita.pred <- vector("list",length = length(datos.lista))
+#se aplica la funcion creada a los datos de entrenamiento
+ridge.lista <- lapply(entrenamiento,ridge)
+ridge.pred <- vector("list",length = length(datos.lista))
+
+# se crea un vector de la misma longitud de datos.lista
 for(l in 1:length( datos.lista)){
-  logisita.pred[[l]] <- predict(logistica.lista[[l]],test[[l]])
+  ridge.pred[[l]] <- predict(ridge.lista[[l]],test[[l]])
 }
-names(logisita.pred) <- names(datos.lista)
+names(ridge.pred) <- names(datos.lista)
 accuracy <- vector("numeric",length = length(datos.lista))
+
+#se asignan valres a las posiciones del vector.pred
 for(l in 1:length(datos.lista)){
-  accuracy[l] <- confusionMatrix(test$raw$clase,logisita.pred[[l]])$overall[1]
+  accuracy[l] <- confusionMatrix(test$raw$clase,ridge.pred[[l]])$overall[1]
 }
 names(accuracy) <- names(datos.lista)
 accuracy_ridge <- accuracy
 
 #Lasso
+#semilla
 set.seed(123456789)
+
+#se establece una funcion de entrenamiento 
 lasso <- function(x) train(clase ~ ., data = x, method = "glmnet", trControl = trControl,tuneGrid = expand.grid(alpha=1,lambda=lambda_seq), trace = F)
 
+#se aplica la funcion creada a los datos de entrenamiento
 lasso.lista <- lapply(entrenamiento,lasso)
 lasso.pred <- vector("list",length = length(datos.lista))
+
+# se crea un vector de la misma longitud de datos.lista
 for(l in 1:length( datos.lista)){
   lasso.pred[[l]] <- predict(lasso.lista[[l]],test[[l]])
 }
 names(lasso.pred) <- names(datos.lista)
 accuracy <- vector("numeric",length = length(datos.lista))
+
+#se asignan valres a las posiciones del vector.pred
 for(l in 1:length(datos.lista)){
   accuracy[l] <- confusionMatrix(test$raw$clase,lasso.pred[[l]])$overall[1]
 }
@@ -141,5 +174,4 @@ names(accuracy) <- names(datos.lista)
 accuracy_lasso <- accuracy
 
 
-
-
+```
