@@ -2,6 +2,7 @@
 title: "Metodos Clasificadores"
 format: pdf
 editor: visual
+author: Daniela Cuesta - Paola Peralta
 ---
 
 ```{r}
