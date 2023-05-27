@@ -19,15 +19,22 @@ This dataset is originally from the National Institute of Diabetes and Digestive
 
 # Cargamos librerias
 
+Se cargan las librerias que se van a necesitar
+
 ```{r}
 library(ggplot2)
 library(dplyr)
 library(caret)
 library(e1071)
 library(ggstatsplot)
+library(psych)
 ```
 
 # Cargamos los datos
+
+La función **`read.csv()`** es utilizada para leer un archivo CSV (valores separados por comas) y almacenarlo en una variable. En este caso, el archivo "diabetes.csv" se ha leído y los datos se han almacenado en la variable **`datos`**.
+
+La función **`head()`** se utiliza para mostrar las primeras filas de un conjunto de datos. En este caso, **`head(datos)`** muestra las primeras filas del conjunto de datos **`datos`**.
 
 ```{r}
 datos <- read.csv("./datos/diabetes.csv")
@@ -40,17 +47,31 @@ Para empezar vamos a considerarla para ver la clasificación del modelo knn y ba
 
 ## Miramos las clases de los datos
 
+La función **`str()`** se utiliza para mostrar la estructura interna de un objeto, lo que nos proporciona información sobre el tipo de datos y la estructura de cada columna en el conjunto de datos, se obtendrá una descripción detallada de la estructura de las columnas. Esto incluiría información como el nombre de cada columna, el tipo de datos de cada columna y una muestra de los valores presentes en cada columna.
+
 ```{r}
 str(datos)
 ```
 
 La única variable que debemos de cambiar es `Outcome` a factor. Donde 1 es diebetes, y 0 es no diabetes
 
+En esta línea de código, se está realizando lo siguiente:
+
+1.  **`datos$Outcome`**: Accede a la columna llamada "Outcome" dentro de "datos". La notación **`$`** se utiliza para acceder a una columna específica dentro de datos.
+
+2.  **`as.factor()`**: Esta función se utiliza para convertir la columna en un factor. Un factor es una forma de representar variables categóricas, donde cada nivel de la variable se trata como una categoría distinta.
+
+3.  El resultado de la función **`as.factor()`** se asigna nuevamente a la columna "Outcome" en el marco de datos "datos", utilizando el operador de asignación **`<-`**.
+
 ```{r}
 datos$Outcome  <- as.factor(datos$Outcome)
 ```
 
 # Análisis estadístico preliminar
+
+La línea de código "dim(datos)" es "dimensiones de datos".
+
+En este caso, "dim(datos)" se utiliza para obtener las dimensiones del marco de datos llamado "datos". Proporciona información sobre la cantidad de filas y columnas que tiene el marco de datos. El primer elemento del vector resultante será el número de filas y el segundo elemento será el número de columnas.
 
 ```{r}
 dim(datos)
@@ -59,6 +80,22 @@ dim(datos)
 Tenemos 768 filas y 9 columnas. Analicemos primero dos a dos las variables una por una
 
 ### Histogramas
+
+La línea **`l.plots <- vector("list", length = ncol(datos)-1)`** crea una lista vacía llamada "l.plots" con una longitud igual al número de columnas de "datos" menos 1.
+
+La línea **`n1 <- ncol(datos) - 1`** calcula el valor de "n1" como el número de columnas de "datos" menos 1.
+
+Bucle "for" que itera sobre valores desde 1 hasta "n1". Dentro del bucle, se llevan a cabo las siguientes operaciones para cada valor "j":
+
+1.  **`h <- hist(datos[,j], plot = F)`**: Se calcula un histograma de la columna "j" del marco de datos "datos".
+
+2.  **`datos.tmp <- data.frame(value = datos[,j], outcome = datos$Outcome)`**: Se crea un nuevo marco de datos llamado "datos.tmp". Este marco de datos contiene dos columnas: "value", que almacena los valores de la columna "j" de "datos", y "outcome", que contiene los valores de la columna "Outcome" de "datos".
+
+3.  **`p1 <- ggplot(datos.tmp, aes(value, fill = outcome)) + geom_histogram(breaks = h$breaks) + ggtitle(paste("Histogram of", colnames(datos)[j]))`**: Se utiliza la biblioteca "ggplot2" para crear un objeto de trazado "ggplot".Se configura para usar el marco de datos "datos.tmp" y asignar los valores de "value" a lo largo del eje x, y se utiliza la variable "outcome" para colorear los histogramas según la categoría de "Outcome".
+
+Genera una serie de histogramas utilizando para cada columna en el marco de datos "datos". Cada histograma muestra la distribución de valores de la columna respectiva, coloreados según la categoría de "Outcome".
+
+Después de completar el bucle **`for`**, la lista **`l.plots`** contendrá los objetos de trazado generados para cada columna del marco de datos. Cada elemento de la lista será un objeto de trazado **`ggplot`** que representa el histograma de una columna en particular, coloreado según la categoría de "Outcome".
 
 ```{r}
 
@@ -90,6 +127,14 @@ ggscatterstats(datos,BMI,DiabetesPedigreeFunction)
 
 Sin embargo, esto puede ser un proceso tedioso... imaginad hacer 16 gráficas ! podemos condersarlo todo
 
+Se realiza el análisis de correlación utilizando **`corr.test()`** de la biblioteca **`psych`**. Los resultados se almacenan en el objeto **`obj.cor`**.
+
+se crea una matriz de valores (**`p.values`**) utilizando los valores de p originales y ajustados (**`obj.cor$p`** y **`obj.cor$p.adj`**, respectivamente).
+
+Luego, se configura la diagonal de **`p.values`** en 1 para asegurar que los valores de p en la diagonal principal no se muestren en el gráfico.
+
+Finalmente, se utiliza **`corrplot::corrplot()`** para crear el gráfico de correlación. un nivel de significancia de 0.05 (**`sig.level = 0.05`**) y se etiquetan las correlaciones insignificantes (**`insig = "label_sig"`**).
+
 ```{r}
 obj.cor <- psych::corr.test(datos[,1:n1])
 p.values <- obj.cor$p
@@ -103,6 +148,18 @@ Ahora podemos proceder a hacer algo similar, con una serie de comparaciones dos 
 
 Primero debemos aplicar una regresión linear con variable dependiente cada variable numérica y por la categórica. Es decir un t.test pero con el fin de ver los residuos, para ver la normalidad de éstos
 
+El código realiza un cálculo de pruebas de normalidad para los residuos de modelos de regresión lineal aplicados a las columnas del marco de datos "datos" en función de la variable "Outcome".
+
+1.  **`apply(datos[, 1:n1], 2, ...)`** aplica una función a cada columna del subconjunto de "datos" definido como **`datos[, 1:n1]`**.
+
+2.  La función **`function(x) summary(lm(x ~ datos$Outcome))$residuals`** se aplica a cada columna. Realiza un ajuste de regresión lineal de la columna contra "Outcome" utilizando **`lm()`**. Luego, extrae los residuos del resumen del modelo utilizando **`summary()$residuals`**.
+
+3.  **`apply(..., 2, shapiro.test)`** aplica la prueba de normalidad de Shapiro-Wilk (**`shapiro.test`**) a los residuos obtenidos en el paso anterior.
+
+4.  El resultado de las pruebas de normalidad se asigna a la variable **`p.norm`**.
+
+Al ejecutar **`p.norm`**, obtendrás un vector de valores p que indica la significancia de la prueba de normalidad de Shapiro-Wilk para los residuos de cada columna en relación con "Outcome". **Valores p pequeños (menores que el nivel de significancia deseado) sugieren que los residuos no siguen una distribución normal.**
+
 ```{r}
 p.norm <- apply(apply(datos[,1:n1],
             2,
@@ -114,6 +171,11 @@ p.norm
 ```
 
 Todas las variables son no normales, tal como vemos en los histogramas.
+
+\
+El código **`ggbetweenstats(datos, Outcome, Pregnancies, type = "nonparametric")`** utiliza una función llamada **`ggbetweenstats`** para realizar un análisis estadístico comparando la variable "Pregnancies" entre diferentes niveles de la variable "Outcome" en el marco de datos "datos". El argumento **`type = "nonparametric"`** indica que se utilizará un enfoque no paramétrico en el análisis.
+
+Lo mismo es para todas las líneas de código que están a continuación
 
 ```{r}
 ggbetweenstats(datos,Outcome,Pregnancies,type = "nonparametric")
@@ -148,6 +210,14 @@ ggbetweenstats(datos,Outcome,Age,type = "nonparametric")
 
 ### PCA
 
+El código **`summary(datos)`** Muestra un resumen estadístico de los datos contenidos en el marco de datos "datos". Proporciona una descripción de las variables, incluyendo medidas de tendencia central, dispersión y otros estadísticos relevantes.
+
+La siguiente línea Esta realiza el análisis de componentes principales utilizando la función **`prcomp()`**. Se aplica a un subconjunto de columnas de "datos"
+
+La siguiente línea combina las coordenadas de los componentes principales (**`pcx$x`**) con la variable "Outcome" de "datos". El resultado se almacena en el marco de datos **`plotpca`**, que ahora t**iene las coordenadas de los componentes principales y la información de "Outcome".**
+
+Finalmente, se crea un gráfico de dispersión de las dos primeras componentes principales (**`PC1`** y **`PC2`**) utilizando **`geom_point()`**. Los puntos se colorearán según la variable "Outcome" del marco de datos **`plotpca`**.
+
 ```{r}
 summary(datos)
 pcx <- prcomp(datos[,1:n1],scale. = F) ## escalamos por la variablidad de los datos
@@ -160,6 +230,10 @@ Ahora vamos a ver si haciendo unas transformaciones esto cambia. Pero antes debe
 
 Pero de igual manera podemos escalar a ver si hay algun cambio...
 
+El código actualizado realiza un análisis de componentes principales (PCA) utilizando la función **`prcomp()`** en R y crea un gráfico de dispersión de las dos primeras componentes principales utilizando la biblioteca **`ggplot2`**. La principal diferencia con el código anterior es que ahora se escala los datos antes de realizar el PCA mediante **`scale. = TRUE`**
+
+El argumento **`scale. = TRUE`** indica que los datos se deben escalar antes de realizar el PCA, lo cual significa que las variables se ajustarán para tener una varianza unitaria.
+
 ```{r}
 summary(datos)
 pcx <- prcomp(datos[,1:n1],scale. = T) ## escalamos por la variablidad de los datos
@@ -168,11 +242,23 @@ plotpca <- bind_cols(pcx$x,outcome=datos$Outcome)
 ggplot(plotpca,aes(PC1,PC2,color=outcome))+geom_point()
 ```
 
+La línea de código **`factoextra::fviz_contrib(pcx, "var")`** muestra un gráfico que ilustra las contribuciones de las variables al PCA realizado. Estas contribuciones pueden ayudar a comprender qué variables tienen un mayor impacto en la estructura de los datos y cómo se relacionan con los componentes principales obtenidos.
+
+-   **`pcx`**: El objeto que contiene el resultado del análisis de componentes principales realizado previamente mediante **`prcomp()`**.
+
+-   **`"var"`**: Indica que se deben visualizar las contribuciones de las variables.
+
 ```{r}
 factoextra::fviz_contrib(pcx,"var")
 ```
 
 Al parecer es la insulina la que está dando problemas
+
+Esta línea utiliza la función **`grep()`** para buscar el término "insulin" en los nombres de las variables (**`colnames(datos)`**) del marco de datos "datos". Los índices de las columnas que contienen "insulin" se almacenan en el vector **`w`**.
+
+Esta línea realiza el análisis de componentes principales utilizando la función **`prcomp()`**. Se seleccionan todas las columnas de "datos" excepto las columnas indicadas en **`w`**
+
+Se utiliza **`ggplot2`** para crear un gráfico de dispersión de las dos primeras componentes principales (**`PC1`** y **`PC2`**) utilizando **`geom_point()`**.
 
 ```{r}
 ## indices a quitar
@@ -184,6 +270,8 @@ ggplot(plotpca,aes(PC1,PC2,color=outcome))+geom_point()
 ```
 
 De hecho la insulina, tenía un aspecto raro, como sesgado, ver gráficos de arriba. Vamos a transformala...
+
+Se realiza una transformación logarítmica en la variable "Insulin" de los datos antes de realizar el análisis de componentes principales (PCA). Luego se crea un gráfico de dispersión de las dos primeras componentes principales utilizando la biblioteca **`ggplot2`**.
 
 ```{r}
 datos$Insulin  <- log(datos$Insulin+0.05)
@@ -198,6 +286,10 @@ ggplot(plotpca,aes(PC1,PC2,color=outcome))+geom_point()
 Cambia ! Esto significa que no hemos quitado la infromacion de la insulina, solamente lo hemos transformado
 
 Es decir, cambia si transformamos los datos...a partir de esto, podemos realizar de nuevo pruebas de diferencia de medianas, pero ahora lo veremos condensado..
+
+Se leen los datos de un archivo CSV utilizando la función **`read.csv()`** y se asignan al objeto **`datos`**. Luego, se convierte la variable "Outcome" en un factor utilizando la función **`as.factor()`**. A continuación, se escalan las variables del marco de datos utilizando la función **`scale()`**.
+
+La función **`scale()`** se utiliza para centrar las variables en cero y escalarlas para que tengan una desviación estándar de uno.
 
 ```{r}
 datos <- read.csv("./datos/diabetes.csv")
