@@ -1,0 +1,102 @@
+---
+title: "Analisis de conjunto de datos"
+format: pdf
+editor: visual
+author: Daniela Cuesta
+---
+
+1.  Se ha cargado los datos correctamente y se ha seleccionado las variables numéricas adecuadas. Además, se ha convertido la variable V9 en un factor y se ha asignado a la variable clase
+
+```{r}
+datos <- read.table("./ecoli.data",header = F)[,-1]
+head(datos)
+
+datos.numericos <- datos[, sapply(datos, is.numeric)]
+
+# Convertir la variable "V9" a factor y asignarla a "clase"
+clase <- datos$V9 <- as.factor(datos$V9)
+
+
+
+```
+
+2.  Se aplica un `summary(datos)`, esto generará un resumen estadístico de todas las variables en el conjunto de datos, específicamente `datos`
+
+```{r}
+summary(datos)
+```
+
+# Inferencia univariante
+
+Se crea una lista **`resultados_shapiro`** donde almacenaremos los resultados de la prueba de normalidad para cada variable. Utilizamos un bucle **`for`** para iterar sobre cada columna en **`datos.numericos`**. En cada iteración, aplicamos **`shapiro.test()`** a la variable correspondiente y guardamos el resultado en la lista **`resultados_shapiro`**, utilizando el nombre de la variable como etiqueta.
+
+Finalmente, utilizamos otro bucle **`for`** para mostrar los resultados de la prueba de normalidad para cada variable, imprimiendo el nombre de la variable y el resultado correspondiente.
+
+```{r}
+# Obtener las variables numéricas del conjunto de datos
+datos.numericos <- datos[, sapply(datos, is.numeric)]
+
+# Aplicar la prueba de normalidad de Shapiro-Wilk a cada variable
+resultados_shapiro <- list()
+
+for (i in 1:ncol(datos.numericos )) {
+  variable <- datos.numericos [, i]
+  resultado <- shapiro.test(variable)
+  resultados_shapiro[[colnames(datos.numericos )[i]]] <- resultado
+}
+
+# Mostrar los resultados de la prueba de normalidad
+for (i in 1:length(resultados_shapiro)) {
+  variable <- names(resultados_shapiro[i])
+  resultado <- resultados_shapiro[[i]]
+  print(paste("Variable:", variable))
+  print(resultado)
+  cat("\n")
+}
+
+```
+
+También se puede aplicar para cada variables
+
+```{r}
+shapiro.test(datos$V2)
+```
+
+Ninguno de los valores p obtenidos indica que alguna de las variables siga una distribución normal, ya que los valores obtenidos son extremadamente pequeños
+
+# Inferencia bivariante
+
+Se realiza una prueba de correlación de Pearson entre las variables V2 y V3. **`datos$V2`** y **`datos$V3`** son las columnas correspondientes a esas variables en el conjunto de datos.
+
+```{r}
+cor.test(datos$V2, datos$V3)
+cor.test(datos$V3, datos$V4)
+cor.test(datos$V4, datos$V5)
+cor.test(datos$V5, datos$V6)
+```
+
+Según el valor p obtenido se puede observar si hay una correlación significativa entre las variables V2 y V3 y así con todas las variables
+
+# Inferencia multivariante: PCA
+
+Se utiliza la función **`scale()`** para estandarizar las variables numéricas en el conjunto de datos. La estandarización asegura que todas las variables tengan media cero y desviación estándar uno.
+
+Se utiliza la función **`prcomp()`** para realizar el análisis de Componentes Principales.
+
+La función **`summary()`**. Proporciona información sobre los componentes principales
+
+```{r}
+# 
+# Seleccionar las variables numéricas para el PCA
+#datos_numericos <- datos[, sapply(datos, is.numeric)]
+
+# Estandarizar las variables
+datos_estandarizados <- scale(datos.numericos)
+
+# Realizar el PCA
+pca <- prcomp(datos_estandarizados)
+
+# Resumen del PCA
+summary(pca)
+
+```
